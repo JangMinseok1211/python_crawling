@@ -10,11 +10,15 @@ def get_detail(link):
 
     # BeautifulSoup 객체 생성
     soup_page = BeautifulSoup(response_page.text, 'html.parser')
-
+    
     # 포스터 이미지
     poster_image_element = soup_page.find("span", class_="poster")
     poster_image = poster_image_element.img["src"] if poster_image_element else None
-
+    
+    #게시물 등록일
+    create_date_element = soup_page.find("span", class_="date")
+    create_date = create_date_element.span.get_text(strip=True) if create_date_element else None
+    
     # 공연 정보
     performance_info_element = soup_page.find("div", class_="introduce")
     performance_info = performance_info_element.div.get_text(strip=True) if performance_info_element else None
@@ -41,6 +45,7 @@ def get_detail(link):
             
     return {
         "poster_image": poster_image,
+        "create_date" : create_date,
         "performance_info": performance_info,
         "discount_info": discount_info_div,
         "performance_intro": performance_intro,
