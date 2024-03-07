@@ -15,6 +15,8 @@ conn = MySQLdb.connect(
     db="ticket",
     charset="utf8"
 )
+
+
 headers = {
 "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
 "Accept-Language" : "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
@@ -52,6 +54,7 @@ for no in range(1, 0, -1):  # 2부터 1까지 역순으로 페이지를 순회�
                 "title": title, 
                 "date": date, 
                 "poster_image": detail["poster_image"],
+                "create_date" : detail["create_date"],
                 "performance_info": detail["performance_info"],
                 "discount_info": detail["discount_info"],
                 "performance_intro": detail["performance_intro"],
@@ -59,10 +62,11 @@ for no in range(1, 0, -1):  # 2부터 1까지 역순으로 페이지를 순회�
                 "planner_info": detail["planner_info"],
             })
 
+    
     for item in data:
-        sql = '''INSERT INTO interpark(type, title, date, poster_image, performance_info, discount_info, performance_intro, casting_info, planner_info)
-                  VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)'''
-        cursor.execute(sql, (item['type'], item['title'], item['date'], item['poster_image'], item['performance_info'], item['discount_info'], item['performance_intro'], item['casting_info'], item['planner_info']))
+        sql = '''INSERT INTO interpark(type, title, date, create_date, poster_image, performance_info, discount_info, performance_intro, casting_info, planner_info)
+                  VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+        cursor.execute(sql, (item['type'], item['title'], item['date'], item['create_date'], item['poster_image'], item['performance_info'], item['discount_info'], item['performance_intro'], item['casting_info'], item['planner_info']))
     
     # 변경사항 저장
     conn.commit()
