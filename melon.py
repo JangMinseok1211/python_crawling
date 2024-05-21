@@ -11,7 +11,7 @@ service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
 
 # 열고자 하는 웹페이지 URL
-driver.get("https://ticket.melon.com/csoon/index.htm#orderType=0&pageIndex=1&schGcode=GENRE_ALL&schText=%EC%95%84%EC%9D%B4%EC%9C%A0&schDt=")
+driver.get("https://ticket.melon.com/csoon/index.htm")
 
 # 카테고리 선택자 및 이름 목록 (콘서트, 뮤지컬/연극, 클래식, 전시/행사)
 categories = [
@@ -23,7 +23,7 @@ categories = [
 
 # 각 카테고리에 대해 크롤링
 for category_name, category_selector in categories:
-    print(f"카테고리: {category_name}")
+    
     
     # 카테고리 클릭
     driver.execute_script(f"document.querySelector('{category_selector}').click();")
@@ -45,6 +45,9 @@ for category_name, category_selector in categories:
         
         # 대기
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.section_ticketopen_view')))
+
+        #카테고리
+        print(f"카테고리: {category_name}")
         
         # 제목 추출
         title = driver.find_element(By.CSS_SELECTOR, '.tit').text if driver.find_elements(By.CSS_SELECTOR, '.tit') else ''
