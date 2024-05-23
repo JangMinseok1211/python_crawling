@@ -1,3 +1,5 @@
+import re
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -6,6 +8,18 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 
+# 데이터 전처리 함수
+def convert_date(date_str):
+    return datetime.strptime(date_str, "%Y.%m.%d").date()
+
+def convert_datetime(datetime_str):
+    match = re.search(r'(\d{4})년 (\d{1,2})월 (\d{1,2})일 \(\S+\) (\d{2}:\d{2})', datetime_str)
+    if match:
+        date_part = f"{match.group(1)}-{match.group(2).zfill(2)}-{match.group(3).zfill(2)}"
+        time_part = match.group(4)
+        return f"{date_part} {time_part}:00"
+    return None
+    
 # ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
@@ -54,12 +68,15 @@ for category_name, category_selector in categories:
         print(f"제목: {title}")
     
         # 등록일
-        register_date = driver.find_element(By.CSS_SELECTOR, '.txt_date').text if driver.find_elements(By.CSS_SELECTOR, '.txt_date') else ''
+        register_date_raw = driver.find_element(By.CSS_SELECTOR, '.txt_date').text if driver.find_elements(By.CSS_SELECTOR, '.txt_date') else ''
+        register_date = convert_date(register_date_raw)
         print(f"등록일: {register_date}")
         
         # 선예매 및 티켓 오픈일 추출
-        pre_sale_date = '정보 없음'
-        open_sale_date = '정보 없음'
+        pre_sale_date_raw = '정보 없음'
+        open_sale_date_raw = '정보 없음'
+        pre_sale_date = None
+        open_sale_date = None
 
         #선예매로 되어있으면 선예매 정보 가져오고 티켓오픈 으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
         try:
@@ -70,14 +87,16 @@ for category_name, category_selector in categories:
                 dd_text = dd_element.text.split(':', 1)[-1].strip()
                 
                 if dt_text == "선예매":
-                    pre_sale_date = dd_text
+                    pre_sale_date_raw = dd_text
+                    pre_sale_date = convert_datetime(pre_sale_date_raw)
                 elif dt_text == "티켓오픈":
-                    open_sale_date = dd_text
+                    open_sale_date_raw = dd_text
+                    open_sale_date = convert_datetime(open_sale_date_raw)
         except Exception as e:
             print(f"Error occurred: {e}")
         
-        print(f"선예매 오픈일: {pre_sale_date}")
-        print(f"티켓 오픈일: {open_sale_date}")
+        print(f"선예매 오픈일: {pre_sale_date_raw} => {pre_sale_date}")
+        print(f"티켓 오픈일: {open_sale_date_raw} => {open_sale_date}")
         
         # 이미지 URL 추출
         image_url = driver.find_element(By.CSS_SELECTOR, '.box_consert_thumb img').get_attribute('src') if driver.find_elements(By.CSS_SELECTOR, '.box_consert_thumb img') else ''
