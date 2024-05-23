@@ -19,7 +19,16 @@ def convert_datetime(datetime_str):
         time_part = match.group(4)
         return f"{date_part} {time_part}:00"
     return None
-    
+
+# 상세보기 링크 추출 함수
+def extract_detail_link(detail_element):
+    onclick_text = detail_element.get_attribute('onclick')
+    match = re.search(r"bannerLanding\('TD', '(\d+)'\);", onclick_text)
+    if match:
+        prod_id = match.group(1)
+        return f"https://ticket.melon.com/performance/index.htm?prodId={prod_id}"
+    return None
+
 # ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
@@ -37,8 +46,6 @@ categories = [
 
 # 각 카테고리에 대해 크롤링
 for category_name, category_selector in categories:
-    
-    
     # 카테고리 클릭
     driver.execute_script(f"document.querySelector('{category_selector}').click();")
     
@@ -60,8 +67,8 @@ for category_name, category_selector in categories:
         # 대기
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.section_ticketopen_view')))
 
-        #카테고리
-        print(f"카테고리: {category_name}")
+        # 카테고리
+        print(f"장르: {category_name}")
         
         # 제목 추출
         title = driver.find_element(By.CSS_SELECTOR, '.tit').text if driver.find_elements(By.CSS_SELECTOR, '.tit') else ''
@@ -78,7 +85,7 @@ for category_name, category_selector in categories:
         pre_sale_date = None
         open_sale_date = None
 
-        #선예매로 되어있으면 선예매 정보 가져오고 티켓오픈 으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
+        # 선예매로 되어있으면 선예매 정보 가져오고 티켓오픈으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
         try:
             dt_elements = driver.find_elements(By.XPATH, "//*[@id='conts']/div[1]/div[2]/div/ul/li/dl/dt[@class='tit_type']")
             for i, dt in enumerate(dt_elements):
@@ -113,7 +120,14 @@ for category_name, category_selector in categories:
         # 기획사 정보 추출
         agency_info = driver.find_element(By.CSS_SELECTOR, '.box_agency .txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_agency .txt') else ''
         print(f"기획사 정보:\n{agency_info}")
-    
+        
+        # 상세보기 링크 추출
+        detail_element = driver.find_elements(By.CSS_SELECTOR, '.box_link > a')
+        detail_url = extract_detail_link(detail_element[0]) if detail_element else ''
+        print(f"상세보기 링크: {detail_url}")
+
+        print("멜론티켓");
+        
         print("--------------------------------------------------------------")
         
         # 현재 탭을 닫고 목록 페이지로 돌아감
