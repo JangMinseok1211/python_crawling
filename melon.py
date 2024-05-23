@@ -121,7 +121,8 @@ def crawl_and_insert():
             if registration_date <= latest_registration_date:
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
-                continue
+                print(f"{genre} 카테고리의 최신 게시물이 존제하지 않습니다.");
+                break
 
             # 선예매 및 티켓 오픈일 추출
             pre_sale_date_raw = '정보 없음'
@@ -171,12 +172,12 @@ def crawl_and_insert():
                 cursor.execute(insert_query, (
                     event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket'
                 ))
-                print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket")
+                #print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket")
             except mysql.connector.Error as err:
                 print(f"Error: {err}")
                 conn.rollback()  # 오류가 발생하면 롤백합니다.
             
-            print("--------------------------------------------------------------")
+            print(f"카테고리: {genre} 게시물 삽입")
             
             # 현재 탭을 닫고 목록 페이지로 돌아감
             driver.close()
