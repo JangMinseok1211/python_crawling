@@ -42,7 +42,7 @@ db_config = {
 try:
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    print("Database connection successful")
+    print("데이터베이스 연결 성공")
 except mysql.connector.Error as err:
     print(f"Error: {err}")
     exit(1)
@@ -122,51 +122,13 @@ for category_name, category_selector in categories:
         image_url = driver.find_element(By.CSS_SELECTOR, '.box_consert_thumb img').get_attribute('src') if driver.find_elements(By.CSS_SELECTOR, '.box_consert_thumb img') else ''
         
         # 기본 정보 추출
-        basic_info = driver.find_element(By.CSS_SELECTOR, '.box_concert_time .data_txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_concert_time .data_txt') else ''
-        
-        # 공연 소개 추출
-        event_description = driver.find_element(By.CSS_SELECTOR, '.box_concert_info .concert_info_txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_concert_info .concert_info_txt') else ''
-        
-        # 기획사 정보 추출
-        agency_info = driver.find_element(By.CSS_SELECTOR, '.box_agency .txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_agency .txt') else ''
-        
-        # 상세보기 링크 추출
-        detail_element = driver.find_elements(By.CSS_SELECTOR, '.box_link > a')
-        detail_url = extract_detail_link(detail_element[0]) if detail_element else detail_link
-        
-        # 데이터베이스에 삽입
-        try:
-            insert_query = """
-            INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(insert_query, (
-                event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket'
-            ))
-            print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket")
-        except mysql.connector.Error as err:
-            print(f"Error: {err}")
-            conn.rollback()  # 오류가 발생하면 롤백합니다.
-        
-        print("--------------------------------------------------------------")
-        
-        # 현재 탭을 닫고 목록 페이지로 돌아감
-        driver.close()
-        driver.switch_to.window(driver.window_handles[0])
-        
-        # 잠시 대기
-        time.sleep(2)
-
-# 변경사항 커밋 및 MySQL 커넥션 종료
-try:
-    conn.commit()
-    print("Changes committed")
+        basic_info = driver.find_element(By.CSS_SELECTOR, '.box_concert_time .data_txt').text if 료")
 except mysql.connector.Error as err:
     print(f"Error: {err}")
 finally:
     cursor.close()
     conn.close()
-    print("Database connection closed")
+    print("데이터베이스 연결 종료")
 
 # 웹 드라이버 종료
 driver.quit()
