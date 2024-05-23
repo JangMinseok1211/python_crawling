@@ -73,89 +73,89 @@ for category_name, category_selector in categories:
     # 티켓 목록을 추출
     tickets = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.list_ticket_cont > li')))
     
-    # 첫 번째 티켓 상세 페이지로 이동하여 정보를 추출
-    ticket = tickets[0]
-    # 티켓 상세 페이지 링크
-    detail_link = ticket.find_element(By.CSS_SELECTOR, 'div.link_consert > a').get_attribute('href')
+    # 각 티켓 상세 페이지로 이동하여 정보를 추출
+    for ticket in tickets:
+        # 티켓 상세 페이지 링크
+        detail_link = ticket.find_element(By.CSS_SELECTOR, 'div.link_consert > a').get_attribute('href')
     
-    # 새 탭에서 상세 페이지 열기
-    driver.execute_script(f"window.open('{detail_link}','_blank');")
-    driver.switch_to.window(driver.window_handles[1])
-    
-    # 대기
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.section_ticketopen_view')))
+        # 새 탭에서 상세 페이지 열기
+        driver.execute_script(f"window.open('{detail_link}','_blank');")
+        driver.switch_to.window(driver.window_handles[1])
+        
+        # 대기
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.section_ticketopen_view')))
 
-    # 장르
-    genre = category_name
-    
-    # 제목 추출
-    event_name = driver.find_element(By.CSS_SELECTOR, '.tit').text if driver.find_elements(By.CSS_SELECTOR, '.tit') else ''
-    
-    # 등록일
-    registration_date_raw = driver.find_element(By.CSS_SELECTOR, '.txt_date').text if driver.find_elements(By.CSS_SELECTOR, '.txt_date') else ''
-    registration_date = convert_date(registration_date_raw)
-    
-    # 선예매 및 티켓 오픈일 추출
-    pre_sale_date_raw = '정보 없음'
-    ticket_open_date_raw = '정보 없음'
-    pre_sale_date = None
-    ticket_open_date = None
+        # 장르
+        genre = category_name
+        
+        # 제목 추출
+        event_name = driver.find_element(By.CSS_SELECTOR, '.tit').text if driver.find_elements(By.CSS_SELECTOR, '.tit') else ''
+        
+        # 등록일
+        registration_date_raw = driver.find_element(By.CSS_SELECTOR, '.txt_date').text if driver.find_elements(By.CSS_SELECTOR, '.txt_date') else ''
+        registration_date = convert_date(registration_date_raw)
+        
+        # 선예매 및 티켓 오픈일 추출
+        pre_sale_date_raw = '정보 없음'
+        ticket_open_date_raw = '정보 없음'
+        pre_sale_date = None
+        ticket_open_date = None
 
-    # 선예매로 되어있으면 선예매 정보 가져오고 티켓오픈으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
-    try:
-        dt_elements = driver.find_elements(By.XPATH, "//*[@id='conts']/div[1]/div[2]/div/ul/li/dl/dt[@class='tit_type']")
-        for i, dt in enumerate(dt_elements):
-            dt_text = dt.text.strip()
-            dd_element = dt.find_element(By.XPATH, "following-sibling::dd[@class='txt_date']")
-            dd_text = dd_element.text.split(':', 1)[-1].strip()
-            
-            if dt_text == "선예매":
-                pre_sale_date_raw = dd_text
-                pre_sale_date = convert_datetime(pre_sale_date_raw)
-            elif dt_text == "티켓오픈":
-                ticket_open_date_raw = dd_text
-                ticket_open_date = convert_datetime(ticket_open_date_raw)
-    except Exception as e:
-        print(f"Error occurred: {e}")
-    
-    # 이미지 URL 추출
-    image_url = driver.find_element(By.CSS_SELECTOR, '.box_consert_thumb img').get_attribute('src') if driver.find_elements(By.CSS_SELECTOR, '.box_consert_thumb img') else ''
-    
-    # 기본 정보 추출
-    basic_info = driver.find_element(By.CSS_SELECTOR, '.box_concert_time .data_txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_concert_time .data_txt') else ''
-    
-    # 공연 소개 추출
-    event_description = driver.find_element(By.CSS_SELECTOR, '.box_concert_info .concert_info_txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_concert_info .concert_info_txt') else ''
-    
-    # 기획사 정보 추출
-    agency_info = driver.find_element(By.CSS_SELECTOR, '.box_agency .txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_agency .txt') else ''
-    
-    # 상세보기 링크 추출
-    detail_element = driver.find_elements(By.CSS_SELECTOR, '.box_link > a')
-    detail_url = extract_detail_link(detail_element[0]) if detail_element else detail_link
-    
-    # 데이터베이스에 삽입
-    try:
-        insert_query = """
-        INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(insert_query, (
-            event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket'
-        ))
-        print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket")
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        conn.rollback()  # 오류가 발생하면 롤백합니다.
-    
-    print("--------------------------------------------------------------")
-    
-    # 현재 탭을 닫고 목록 페이지로 돌아감
-    driver.close()
-    driver.switch_to.window(driver.window_handles[0])
-    
-    # 첫 번째 티켓만 처리 후 종료
-    break
+        # 선예매로 되어있으면 선예매 정보 가져오고 티켓오픈으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
+        try:
+            dt_elements = driver.find_elements(By.XPATH, "//*[@id='conts']/div[1]/div[2]/div/ul/li/dl/dt[@class='tit_type']")
+            for i, dt in enumerate(dt_elements):
+                dt_text = dt.text.strip()
+                dd_element = dt.find_element(By.XPATH, "following-sibling::dd[@class='txt_date']")
+                dd_text = dd_element.text.split(':', 1)[-1].strip()
+                
+                if dt_text == "선예매":
+                    pre_sale_date_raw = dd_text
+                    pre_sale_date = convert_datetime(pre_sale_date_raw)
+                elif dt_text == "티켓오픈":
+                    ticket_open_date_raw = dd_text
+                    ticket_open_date = convert_datetime(ticket_open_date_raw)
+        except Exception as e:
+            print(f"Error occurred: {e}")
+        
+        # 이미지 URL 추출
+        image_url = driver.find_element(By.CSS_SELECTOR, '.box_consert_thumb img').get_attribute('src') if driver.find_elements(By.CSS_SELECTOR, '.box_consert_thumb img') else ''
+        
+        # 기본 정보 추출
+        basic_info = driver.find_element(By.CSS_SELECTOR, '.box_concert_time .data_txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_concert_time .data_txt') else ''
+        
+        # 공연 소개 추출
+        event_description = driver.find_element(By.CSS_SELECTOR, '.box_concert_info .concert_info_txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_concert_info .concert_info_txt') else ''
+        
+        # 기획사 정보 추출
+        agency_info = driver.find_element(By.CSS_SELECTOR, '.box_agency .txt').text if driver.find_elements(By.CSS_SELECTOR, '.box_agency .txt') else ''
+        
+        # 상세보기 링크 추출
+        detail_element = driver.find_elements(By.CSS_SELECTOR, '.box_link > a')
+        detail_url = extract_detail_link(detail_element[0]) if detail_element else detail_link
+        
+        # 데이터베이스에 삽입
+        try:
+            insert_query = """
+            INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(insert_query, (
+                event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket'
+            ))
+            print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket")
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            conn.rollback()  # 오류가 발생하면 롤백합니다.
+        
+        print("--------------------------------------------------------------")
+        
+        # 현재 탭을 닫고 목록 페이지로 돌아감
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        
+        # 잠시 대기
+        time.sleep(2)
 
 # 변경사항 커밋 및 MySQL 커넥션 종료
 try:
