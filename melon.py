@@ -127,8 +127,8 @@ def crawl_and_insert():
             # 선예매 및 티켓 오픈일 추출
             pre_sale_date_raw = '정보 없음'
             ticket_open_date_raw = '정보 없음'
-            pre_sale_date = None
-            ticket_open_date = None
+            pre_sale_date = '정보 없음'
+            ticket_open_date = '정보 없음'
 
             # 선예매로 되어있으면 선예매 정보 가져오고 티켓오픈으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
             try:
