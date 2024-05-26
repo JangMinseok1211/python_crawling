@@ -34,10 +34,10 @@ def extract_detail_link(detail_element):
 
 # MySQL 연결 설정
 db_config = {
-    'user': 'root',
-    'password': '1921',
-    'host': 'localhost',
-    'database': 'tow',
+    'user': 'TOW_admin',
+    'password': 'vmfhwprxm',
+    'host': 'tickets.cxgma06qu9mq.ap-southeast-2.rds.amazonaws.com',
+    'database': 'TOW',
     'port': 3306
 }
 
@@ -113,6 +113,9 @@ def crawl_and_insert():
             # 제목 추출
             event_name = driver.find_element(By.CSS_SELECTOR, '.tit').text if driver.find_elements(By.CSS_SELECTOR, '.tit') else ''
             
+            # 제목에서 "티켓 오픈 안내" 문구 제거
+            event_name = re.sub(r'\s*티켓 오픈 안내\s*$', '', event_name)
+
             # 등록일
             registration_date_raw = driver.find_element(By.CSS_SELECTOR, '.txt_date').text if driver.find_elements(By.CSS_SELECTOR, '.txt_date') else ''
             registration_date = convert_date(registration_date_raw)
@@ -121,14 +124,14 @@ def crawl_and_insert():
             if registration_date <= latest_registration_date:
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
-                print(f"{genre} 카테고리의 최신 게시물이 존제하지 않습니다.");
+                print(f"{genre} 카테고리의 최신 게시물이 존재하지 않습니다.")
                 break
 
             # 선예매 및 티켓 오픈일 추출
             pre_sale_date_raw = '정보 없음'
             ticket_open_date_raw = '정보 없음'
-            pre_sale_date = '정보 없음'
-            ticket_open_date = '정보 없음'
+            pre_sale_date = None
+            ticket_open_date = None
 
             # 선예매로 되어있으면 선예매 정보 가져오고 티켓오픈으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
             try:
@@ -205,7 +208,7 @@ def run_threaded(job_func):
     job_thread.start()
 
 # 매일 00:00에 작업 실행
-schedule.every().day.at("00:00").do(run_threaded, crawl_and_insert)
+schedule.every().day.at("14:27").do(run_threaded, crawl_and_insert)
 
 # 스케줄러 유지
 while True:
