@@ -33,13 +33,7 @@ def extract_detail_link(detail_element):
     return None
 
 # MySQL 연결 설정
-db_config = {
-    'user': 'root',
-    'password': '1921',
-    'host': 'localhost',
-    'database': 'tow',
-    'port': 3306
-}
+
 
 def get_latest_registration_date(category_name):
     try:
@@ -113,6 +107,9 @@ def crawl_and_insert():
             # 제목 추출
             event_name = driver.find_element(By.CSS_SELECTOR, '.tit').text if driver.find_elements(By.CSS_SELECTOR, '.tit') else ''
             
+            # 제목에서 "티켓 오픈 안내" 문구 제거
+            event_name = re.sub(r'\s*티켓 오픈 안내\s*$', '', event_name)
+
             # 등록일
             registration_date_raw = driver.find_element(By.CSS_SELECTOR, '.txt_date').text if driver.find_elements(By.CSS_SELECTOR, '.txt_date') else ''
             registration_date = convert_date(registration_date_raw)
@@ -121,14 +118,14 @@ def crawl_and_insert():
             if registration_date <= latest_registration_date:
                 driver.close()
                 driver.switch_to.window(driver.window_handles[0])
-                print(f"{genre} 카테고리의 최신 게시물이 존제하지 않습니다.");
+                print(f"{genre} 카테고리의 최신 게시물이 존재하지 않습니다.")
                 break
 
             # 선예매 및 티켓 오픈일 추출
             pre_sale_date_raw = '정보 없음'
             ticket_open_date_raw = '정보 없음'
-            pre_sale_date = '정보 없음'
-            ticket_open_date = '정보 없음'
+            pre_sale_date = None
+            ticket_open_date = None
 
             # 선예매로 되어있으면 선예매 정보 가져오고 티켓오픈으로 되어있으면 티켓오픈의 날짜 정보를 가져옴
             try:
@@ -146,6 +143,15 @@ def crawl_and_insert():
                         ticket_open_date = convert_datetime(ticket_open_date_raw)
             except Exception as e:
                 print(f"Error occurred: {e}")
+
+            # 공연 기간 추출
+            event_period_raw = driver.find_element(By.CSS_SELECTOR, '#periodInfo').text if driver.find_elements(By.CSS_SELECTOR, '#periodInfo') else ''
+            event_start_date, event_end_date = None, None
+            if event_period_raw:
+                period_match = re.match(r'(\d{4}\.\d{2}\.\d{2}) - (\d{4}\.\d{2}\.\d{2})', event_period_raw)
+                if period_match:
+                    event_start_date = convert_date(period_match.group(1))
+                    event_end_date = convert_date(period_match.group(2))
             
             # 이미지 URL 추출
             image_url = driver.find_element(By.CSS_SELECTOR, '.box_consert_thumb img').get_attribute('src') if driver.find_elements(By.CSS_SELECTOR, '.box_consert_thumb img') else ''
@@ -166,13 +172,13 @@ def crawl_and_insert():
             # 데이터베이스에 삽입
             try:
                 insert_query = """
-                INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site, event_start_date, event_end_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(insert_query, (
-                    event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket'
+                    event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket', event_start_date, event_end_date
                 ))
-                #print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket")
+                #print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket, {event_start_date}, {event_end_date}")
             except mysql.connector.Error as err:
                 print(f"Error: {err}")
                 conn.rollback()  # 오류가 발생하면 롤백합니다.
@@ -205,7 +211,7 @@ def run_threaded(job_func):
     job_thread.start()
 
 # 매일 00:00에 작업 실행
-schedule.every().day.at("00:00").do(run_threaded, crawl_and_insert)
+schedule.every().day.at("12:33").do(run_threaded, crawl_and_insert)
 
 # 스케줄러 유지
 while True:
