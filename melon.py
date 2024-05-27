@@ -168,7 +168,19 @@ def crawl_and_insert():
             # 상세보기 링크 추출
             detail_element = driver.find_elements(By.CSS_SELECTOR, '.box_link > a')
             detail_url = extract_detail_link(detail_element[0]) if detail_element else detail_link
+
+            driver.execute_script(f"window.open('{detail_url}','_blank');")
+            driver.switch_to.window(driver.window_handles[2])
             
+            # 공연 기간 재확인 및 추출 (상세보기 페이지에서)
+            event_period_raw_detail = driver.find_element(By.CSS_SELECTOR, '#periodInfo').text if driver.find_elements(By.CSS_SELECTOR, '#periodInfo') else ''
+            if event_period_raw_detail:
+                period_match = re.match(r'(\d{4}\.\d{2}\.\d{2}) - (\d{4}\.\d{2}\.\d{2})', event_period_raw_detail)
+                if period_match:
+                    event_start_date = convert_date(period_match.group(1))
+                    event_end_date = convert_date(period_match.group(2))
+            driver.close()
+            driver.switch_to.window(driver.window_handles[1])
             # 데이터베이스에 삽입
             try:
                 insert_query = """
@@ -178,7 +190,7 @@ def crawl_and_insert():
                 cursor.execute(insert_query, (
                     event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket', event_start_date, event_end_date
                 ))
-                #print(f"Inserted: {event_name}, {registration_date}, {ticket_open_date}, {pre_sale_date}, {image_url}, {basic_info}, {event_description}, {agency_info}, {detail_url}, {genre}, Melon Ticket, {event_start_date}, {event_end_date}")
+                print(f"{event_name}, Melon Ticket, {event_start_date}, {event_end_date}")
             except mysql.connector.Error as err:
                 print(f"Error: {err}")
                 conn.rollback()  # 오류가 발생하면 롤백합니다.
@@ -206,14 +218,4 @@ def crawl_and_insert():
     # 웹 드라이버 종료
     driver.quit()
 
-def run_threaded(job_func):
-    job_thread = threading.Thread(target=job_func)
-    job_thread.start()
-
-# 매일 00:00에 작업 실행
-schedule.every().day.at("12:33").do(run_threaded, crawl_and_insert)
-
-# 스케줄러 유지
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+crawl_and_insert()
