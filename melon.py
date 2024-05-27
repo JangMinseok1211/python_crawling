@@ -33,13 +33,7 @@ def extract_detail_link(detail_element):
     return None
 
 # MySQL 연결 설정
-db_config = {
-    'user': 'TOW_admin',
-    'password': 'vmfhwprxm',
-    'host': 'tickets.cxgma06qu9mq.ap-southeast-2.rds.amazonaws.com',
-    'database': 'TOW',
-    'port': 3306
-}
+
 
 def get_latest_registration_date(category_name):
     try:
