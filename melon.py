@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import NoSuchElementException
 import mysql.connector
 import time
 
@@ -60,10 +61,23 @@ def crawl_and_insert():
         print(f"Error: {err}")
         return
 
+
+
     # ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service)
 
+    # 예매 안내 팝업 닫기 함수
+    def close_popup(driver):
+        try:
+            close_button = driver.find_element(By.CSS_SELECTOR, '#noticeAlert_layerpopup_close')
+            close_button.click()
+            time.sleep(1)
+        except NoSuchElementException:
+            pass
+        except Exception as e:
+            print(f"Unexpected error when trying to close popup: {e}")
+    
     # 열고자 하는 웹페이지 URL
     driver.get("https://ticket.melon.com/csoon/index.htm")
 
@@ -185,6 +199,9 @@ def crawl_and_insert():
 
                 driver.execute_script(f"window.open('{detail_url}','_blank');")
                 driver.switch_to.window(driver.window_handles[2])
+
+                # 예매 안내 팝업 닫기 
+                close_popup(driver)
                 
                 # 공연 기간 추출 (상세보기 페이지에서)
                 event_period_raw_detail = driver.find_element(By.CSS_SELECTOR, '#periodInfo').text if driver.find_elements(By.CSS_SELECTOR, '#periodInfo') else ''
@@ -197,17 +214,39 @@ def crawl_and_insert():
                         
                 # 공연 장소 추출
                 venue = driver.find_element(By.CSS_SELECTOR, '#performanceHallBtn > span.place').text if driver.find_elements(By.CSS_SELECTOR, '#performanceHallBtn > span.place') else ''
-            
+  
+                # 공연장 정보 탭 클릭
+                try:
+                    # 공연장 정보 탭 클릭
+                    tab_element = driver.find_element(By.CSS_SELECTOR, 'li#sub_place a')
+                    tab_element.click()
+                                                
+                    # 공연 장소 주소 추출 (list_profile 클래스의 첫 번째 li 요소 사용)
+                    try:
+                        address_element = driver.find_element(By.CSS_SELECTOR, '#conts > div > div:nth-child(11) > div.box_consert_profile_in > div.box_consert_txt > ul > li:nth-child(1)')
+                        address = address_element.text
+                    except NoSuchElementException:
+                        try:
+                            address_element = driver.find_element(By.CSS_SELECTOR, '#conts > div > div:nth-child(12) > div.box_consert_profile_in > div.box_consert_txt > ul > li:nth-child(1)')
+                            address = address_element.text
+                        except NoSuchElementException:
+                            address = ''
+                except Exception as e:
+                    address = ''
+                    
+                
+                print(f"Address: {address}")
+
                 driver.close()
                 driver.switch_to.window(driver.window_handles[1])
                 # 데이터베이스에 삽입
                 try:
                     insert_query = """
-                    INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site, event_start_date, event_end_date, venue)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site, event_start_date, event_end_date, venue, address)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
                     cursor.execute(insert_query, (
-                        event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket', event_start_date, event_end_date, venue
+                        event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket', event_start_date, event_end_date, venue, address
                     ))
                 except mysql.connector.Error as err:
                     print(f"Error: {err}")
