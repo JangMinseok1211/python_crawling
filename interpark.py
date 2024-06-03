@@ -27,6 +27,9 @@ for ticket in tickets:
     
     # 카테고리
     genre = ticket.find_element(By.CSS_SELECTOR, 'td.type').text
+    #카테고리가 사이트공지 일경우 크롤링 하지 않음
+    if genre == '사이트공지' :
+        continue
     print("카테고리 : " + genre)
     
     # 티켓오픈일
