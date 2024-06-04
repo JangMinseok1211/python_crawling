@@ -241,13 +241,24 @@ def crawl_and_insert():
                 driver.switch_to.window(driver.window_handles[1])
                 # 데이터베이스에 삽입
                 try:
-                    insert_query = """
-                    INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_link, genre, sales_site, event_start_date, event_end_date, venue, address)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    # 이벤트 정보 삽입
+                    insert_event_query = """
+                    INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, genre, event_start_date, event_end_date, venue, address)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
-                    cursor.execute(insert_query, (
-                        event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, detail_url, genre, 'Melon Ticket', event_start_date, event_end_date, venue, address
+                    cursor.execute(insert_event_query, (
+                        event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, genre, event_start_date, event_end_date, venue, address
                     ))
+                    
+                    # 마지막으로 삽입된 이벤트 ID 가져오기
+                    event_id = cursor.lastrowid
+                    
+                    # 판매 사이트 정보 삽입
+                    insert_site_query = """
+                    INSERT INTO event_sites (event_id, sales_site, detail_link)
+                    VALUES (%s, %s, %s)
+                    """
+                    cursor.execute(insert_site_query, (event_id, 'Melon Ticket', detail_url))
                 except mysql.connector.Error as err:
                     print(f"Error: {err}")
                     conn.rollback()  # 오류가 발생하면 롤백합니다.
