@@ -34,10 +34,42 @@ def extract_detail_link(detail_element):
 # MySQL 연결 설정
 
 
+# MySQL 연결 함수
+def get_mysql_connection():
+    return mysql.connector.connect(**db_config)
+
+# 이벤트 존재 확인 함수 (LIKE를 사용하여 부분 일치 검색)
+def is_event_exists(event_name):
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    query = "SELECT id FROM tickets WHERE event_name LIKE %s"
+    cursor.execute(query, ('%' + event_name + '%',))
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return result
+
+# 이벤트 삽입 함수
+def insert_event(cursor, event_data):
+    insert_event_query = """
+    INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, genre, event_start_date, event_end_date, venue, address)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    cursor.execute(insert_event_query, event_data)
+    return cursor.lastrowid
+
+# 판매 사이트 삽입 함수
+def insert_sales_site(cursor, sales_site_data):
+    insert_site_query = """
+    INSERT INTO event_sites (event_id, sales_site, detail_link)
+    VALUES (%s, %s, %s)
+    """
+    cursor.execute(insert_site_query, sales_site_data)
+
 # 데이터베이스에서 가장 최근의 게시물 등록일을 가져옴
 def get_latest_registration_date(category_name):
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = get_mysql_connection()
         cursor = conn.cursor()
         query = "SELECT MAX(registration_date) FROM tickets WHERE genre = %s"
         cursor.execute(query, (category_name,))
@@ -54,14 +86,12 @@ def get_latest_registration_date(category_name):
 
 def crawl_and_insert():
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = get_mysql_connection()
         cursor = conn.cursor()
         print("데이터베이스 연결 성공")
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         return
-
-
 
     # ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
     service = Service(ChromeDriverManager().install())
@@ -164,23 +194,6 @@ def crawl_and_insert():
                 except Exception as e:
                     print(f"Error occurred: {e}")
                     
-                '''
-                # 선예매 오픈일 또는 티켓 오픈일이 오늘 날짜보다 뒤인지 확인
-                today = datetime.now().date()
-                if pre_sale_date and pre_sale_date.date() > today:
-                    pass
-                elif ticket_open_date and ticket_open_date.date() > today:
-                    pass
-                else:
-                    driver.close()
-                    driver.switch_to.window(driver.window_handles[0])
-                    print(f"{genre} 카테고리의 {event_name} 게시물이 조건을 만족하지 않습니다.")
-                    continue
-                '''
-                
-                
-                
-                
                 # 이미지 URL 추출
                 image_url = driver.find_element(By.CSS_SELECTOR, '.box_consert_thumb img').get_attribute('src') if driver.find_elements(By.CSS_SELECTOR, '.box_consert_thumb img') else ''
                 
@@ -234,36 +247,38 @@ def crawl_and_insert():
                 except Exception as e:
                     address = ''
                     
-                
                 print(f"Address: {address}")
 
                 driver.close()
                 driver.switch_to.window(driver.window_handles[1])
+                
                 # 데이터베이스에 삽입
                 try:
-                    # 이벤트 정보 삽입
-                    insert_event_query = """
-                    INSERT INTO tickets (event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, genre, event_start_date, event_end_date, venue, address)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """
-                    cursor.execute(insert_event_query, (
-                        event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info, event_description, agency_info, genre, event_start_date, event_end_date, venue, address
-                    ))
-                    
-                    # 마지막으로 삽입된 이벤트 ID 가져오기
-                    event_id = cursor.lastrowid
-                    
-                    # 판매 사이트 정보 삽입
-                    insert_site_query = """
-                    INSERT INTO event_sites (event_id, sales_site, detail_link)
-                    VALUES (%s, %s, %s)
-                    """
-                    cursor.execute(insert_site_query, (event_id, 'Melon Ticket', detail_url))
+                    event_exists = is_event_exists(event_name)
+
+                    if event_exists:
+                        event_id = event_exists[0] #첫번재 열의 값인 id를 가져옴
+                        # 이미 존재하는 이벤트에 대해 판매 사이트 정보만 추가
+                        sales_site_data = (event_id, 'Melon Ticket', detail_url)
+                        insert_sales_site(cursor, sales_site_data)
+                    else:
+                        # 이벤트 정보 삽입
+                        event_data = (
+                            event_name, registration_date, ticket_open_date, pre_sale_date, image_url, basic_info,
+                            event_description, agency_info, genre, event_start_date, event_end_date, venue, address
+                        )
+                        event_id = insert_event(cursor, event_data)
+
+                        # 판매 사이트 정보 삽입
+                        sales_site_data = (event_id, 'Melon Ticket', detail_url)
+                        insert_sales_site(cursor, sales_site_data)
+
+                    conn.commit()
+                    print(f"카테고리: {genre} 게시물 삽입 또는 업데이트 완료")
+
                 except mysql.connector.Error as err:
                     print(f"Error: {err}")
                     conn.rollback()  # 오류가 발생하면 롤백합니다.
-                
-                print(f"카테고리: {genre} 게시물 삽입")
                 
                 # 현재 탭을 닫고 목록 페이지로 돌아감
                 driver.close()
