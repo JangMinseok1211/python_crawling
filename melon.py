@@ -71,7 +71,12 @@ def get_latest_registration_date(category_name):
     try:
         conn = get_mysql_connection()
         cursor = conn.cursor()
-        query = "SELECT MAX(registration_date) FROM tickets WHERE genre = %s"
+        query = """
+        SELECT MAX(tickets.registration_date) 
+        FROM tickets 
+        JOIN event_sites ON tickets.id = event_sites.event_id 
+        WHERE tickets.genre = %s AND event_sites.sales_site = 'Melon Ticket'
+        """
         cursor.execute(query, (category_name,))
         result = cursor.fetchone()
         cursor.close()
