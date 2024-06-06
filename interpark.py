@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import NoSuchElementException
 import mysql.connector
 import time
 
@@ -28,6 +29,17 @@ def convert_datetime(datetime_str):
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
 
+ # 예매 안내 팝업 닫기 함수
+def close_popup(driver):
+    try:
+        close_button = driver.find_element(By.CSS_SELECTOR, '#popup-prdGuide > div > div.popupFooter > button')
+        close_button.click()
+        time.sleep(1)
+    except NoSuchElementException:
+        pass
+    except Exception as e:
+        print(f"Unexpected error when trying to close popup: {e}")
+        
 # 열고자 하는 웹페이지 URL
 driver.get("https://ticket.interpark.com/webzine/paper/TPNoticeList.asp?tid1=in_scroll&tid2=ticketopen&tid3=board_main&tid4=board_main")  
 
@@ -61,19 +73,34 @@ for ticket in tickets:
     
     time.sleep(2)
     
-    # 티켓선예매
-    pre_sale_date = ''
+
+  
     
     # 티켓오픈일 추출
     try:
-        open_date_text = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li.open').text
-        open_date_text = open_date_text.replace('티켓오픈일', '').strip()  # '티켓오픈일' 제거
-        ticket_open_date = convert_datetime(open_date_text)
+        ticket_open_element = driver.find_element(By.CSS_SELECTOR, 'li.open')
+        ticket_open_text = ticket_open_element.text.strip()
+        ticket_open_date = ticket_open_text.replace('티켓오픈일', '').strip()  # '티켓오픈일' 제거
+        ticket_open_date = convert_datetime(ticket_open_date)
         print(f"티켓오픈일: {ticket_open_date}")
-    except Exception as e:
-        print(f"티켓오픈일 추출 중 오류 발생: {e}")
+    except:
         ticket_open_date = None
-    
+        
+    # 티켓선예매 추출
+    presale_info = ''
+    try:
+        toping_presale_element = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li.tiki')
+        presale_info = toping_presale_element.text.replace('Toping 선예매', '').strip()
+        pre_ticket_open_date = convert_datetime(presale_info)
+    except:
+        try:
+            fanclub_presale_element = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li:nth-child(2)')
+            presale_info = fanclub_presale_element.text.replace('팬클럽 선예매', '').strip()
+            pre_ticket_open_date = convert_datetime(presale_info)
+        except:
+            pre_ticket_open_date = ''
+            
+    print(f'선예매 : {pre_ticket_open_date}')
     # 이미지 URL
     try:
         image_url = driver.find_element(By.CSS_SELECTOR, '.section_notice .detail_top .poster > img').get_attribute('src')
@@ -140,6 +167,8 @@ for ticket in tickets:
     driver.switch_to.window(driver.window_handles[2])
     
     time.sleep(2)
+    # 예매 안내 팝업 닫기 
+    close_popup(driver)
     
     # 공연 기간 추출
     try:
@@ -154,21 +183,33 @@ for ticket in tickets:
         event_start_date = None
         event_end_date = None
     print(f"공연기간: {event_start_date} ~ {event_end_date}")
-    
-    venue = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(1) > div > a').text
-    venue = venue[:-5] #불필요한 문장 삭제 
-    print(f'장소: {venue}')
-
+    try:
+        venue = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(1) > div > a').text
+        venue = venue[:-5] #불필요한 문장 삭제 
+        print(f'장소: {venue}')
+        
+    except: 
+         venue = ''
     # 공연장 정보 팝업 클릭 및 주소 추출
     try:
         info_btn = driver.find_element(By.CSS_SELECTOR, '.infoBtn[data-popup="info-place"]')
         info_btn.click()
-        time.sleep(2)  # 팝업이 로드될 시간을 주기 위해 대기
-        address = driver.find_element(By.CSS_SELECTOR, '#popup-info-place > div > div.popupBody > div > div.popPlaceInfo > p > span').text
-        print(f'주소: {address}')
-    except Exception as e:
+        time.sleep(2)  
+        address_elements = driver.find_elements(By.CSS_SELECTOR, '#popup-info-place > div > div.popupBody > div > div.popPlaceInfo > p')
         address = ''
-        print(f"Error retrieving address: {e}")
+        
+        for element in address_elements:
+            if '주소' in element.text:
+                span_element = element.find_element(By.TAG_NAME, 'span')
+                address = span_element.text
+                break
+                
+               
+    except:
+        address = ''
+        
+    print(f'주소: {address}')
+    print("-------------------------------------------------------------")
         
     # 현재 탭을 닫음
     driver.close()
