@@ -39,7 +39,7 @@ def get_mysql_connection():
     return mysql.connector.connect(**db_config)
 
 # 이벤트 존재 확인 함수 (LIKE를 사용하여 부분 일치 검색)
-def is_event_exists(cursor,event_name):
+def is_event_exists(event_name):
     conn = get_mysql_connection()
     cursor = conn.cursor()
     query = "SELECT id FROM tickets WHERE event_name LIKE %s"
@@ -67,7 +67,7 @@ def insert_sales_site(cursor, sales_site_data):
     cursor.execute(insert_site_query, sales_site_data)
 
 # 데이터베이스에서 가장 최근의 게시물 등록일을 가져옴
-def get_latest_registration_date(cursorcategory_name):
+def get_latest_registration_date(category_name):
     try:
         conn = get_mysql_connection()
         cursor = conn.cursor()
