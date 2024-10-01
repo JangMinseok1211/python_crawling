@@ -33,7 +33,6 @@ def extract_detail_link(detail_element):
 
 # MySQL 연결 설정
 
-
 # MySQL 연결 함수
 def get_mysql_connection():
     return mysql.connector.connect(**db_config)
@@ -99,7 +98,7 @@ def crawl_and_insert():
         return
 
     # ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
-    service = Service(ChromeDriverManager().install())
+    service = Service()
     driver = webdriver.Chrome(service=service)
 
     # 예매 안내 팝업 닫기 함수
