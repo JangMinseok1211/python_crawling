@@ -32,6 +32,9 @@ def extract_detail_link(detail_element):
     return None
 
 # MySQL 연결 설정
+db_config = {
+
+}
 
 # MySQL 연결 함수
 def get_mysql_connection():
@@ -119,8 +122,8 @@ def crawl_and_insert():
     categories = [
         ("콘서트", "#sForm > div > div.wrap_form_input.box_ticket_search > div > div > div > ul > li:nth-child(2) > a"),
         ("뮤지컬연극", "#sForm > div > div.wrap_form_input.box_ticket_search > div > div > div > ul > li:nth-child(3) > a"),
-        ("클래식", "#sForm > div > div.wrap_form_input.box_ticket_search > div > div > div > ul > li:nth-child(4) > a"),
-        ("전시행사", "#sForm > div > div.wrap_form_input.box_ticket_search > div > div > div > ul > li:nth-child(5) > a")
+        ("클래식", "#sForm > div > div.wrap_form_input.box_ticket_search > div > div > div > ul > li:nth-child(5) > a"),
+        ("전시행사", "#sForm > div > div.wrap_form_input.box_ticket_search > div > div > div > ul > li:nth-child(6) > a")
     ]
 
     for category_name, category_selector in categories:
