@@ -9,6 +9,16 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
 import mysql.connector
 import time
+import subprocess
+
+# ChromeOptions 설정
+
+subprocess.Popen(r'C:\Program Files\Google\Chrome\Application\chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chromeCookie"')
+option = Options()
+option.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+# ChromeDriver 초기화
+driver = webdriver.Chrome(options=options)
+
 
 # 데이터 전처리 함수
 def convert_date(date_str):
@@ -25,6 +35,24 @@ def convert_datetime(datetime_str):
     date_db_format = date_obj.strftime('%Y-%m-%d %H:%M:%S')
     return date_db_format
 
+# 공연 기간을 추출하는 함수
+def extract_event_dates(basic_info):
+    # 정규식 패턴: 날짜 형식(예: 2024년 11월 14일)과 기간 형식(예: ~ 2024년 11월 16일)
+    date_pattern = r'(\d{4}년\s\d{1,2}월\s\d{1,2}일)\([^)]+\)(\s*~\s*(\d{4}년\s\d{1,2}월\s\d{1,2}일)\([^)]+\))?'
+    
+    match = re.search(date_pattern, basic_info)
+    
+    if match:
+        start_date_str = match.group(1)  # 공연 시작일
+        end_date_str = match.group(3) if match.group(3) else start_date_str  # 공연 종료일 (없으면 시작일과 같음)
+        
+        # 날짜를 datetime 형식으로 변환
+        start_date = datetime.strptime(start_date_str, '%Y년 %m월 %d일').date()
+        end_date = datetime.strptime(end_date_str, '%Y년 %m월 %d일').date()
+        
+        return start_date, end_date
+    else:
+        return None, None
 
 # MySQL 연결 함수
 def get_mysql_connection():
@@ -41,7 +69,10 @@ def is_event_exists(cursor, event_name):
     conn.close()
     return result
 
+# MySQL 연결 설정
+db_config = {
 
+}
 # 이벤트 삽입 함수
 def insert_event(cursor, event_data):
     insert_event_query = """
@@ -67,9 +98,7 @@ except mysql.connector.Error as err:
     print(f"Error: {err}")
     
     
-# ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service)
+
 
  # 예매 안내 팝업 닫기 함수
 def close_popup(driver):
@@ -103,9 +132,10 @@ driver.switch_to.frame(iframe_content)
 tickets = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "body > div > div > div.list > div.table > table > tbody > tr")))
 
 for ticket in tickets: 
+    venue = ''
     # 제목
     event_name = ticket.find_element(By.CSS_SELECTOR, 'td.subject').text
-
+    
     
     # 카테고리
     try:
@@ -125,8 +155,9 @@ for ticket in tickets:
 
     
     # 티켓링크 상세페이지
+    detail_link = ''
     detail_link = ticket.find_element(By.CSS_SELECTOR, 'td.subject > a').get_attribute('href')
-
+    time.sleep(1)
     # 상세페이지 열기
     driver.execute_script(f"window.open('{detail_link}','_blank');")
     driver.switch_to.window(driver.window_handles[1])
@@ -140,9 +171,18 @@ for ticket in tickets:
     try:
         ticket_open_element = driver.find_element(By.CSS_SELECTOR, 'li.open')
         ticket_open_text = ticket_open_element.text.strip()
+
+        # "추후 공지"인지 확인
+        if "추후공지" in ticket_open_text:
+            print(f"'{event_name}' 이벤트는 추후 공지입니다. 다음으로 넘어갑니다.")
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+            event_name = None
+            continue  # 다음 티켓으로 넘어감
+            
         ticket_open_date = ticket_open_text.replace('티켓오픈일', '').strip()  # '티켓오픈일' 제거
         ticket_open_date = convert_datetime(ticket_open_date)
-
+        
     except:
         ticket_open_date = None
         
@@ -217,66 +257,67 @@ for ticket in tickets:
                 agency_info = info.text
 
     agency_info= agency_info + casting
-    
-    # 상세보기 링크 추출
-    detail = detail_link
+
     try:
         detail_url = driver.find_element(By.CSS_SELECTOR, 'a.btn_book').get_attribute('href')
+         #상세보기 링크 페이지로 접속
+        driver.execute_script(f"window.open('{detail_url}','_blank');")
+        driver.switch_to.window(driver.window_handles[2])
+        
+        time.sleep(1)
+        # 예매 안내 팝업 닫기 
+        close_popup(driver)
+        
+        # 공연 기간 추출
+        try:
+            period_text = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(2) > div > p').text
+    
+            if '~' in period_text:
+                event_start_date, event_end_date = period_text.split('~')
+                event_start_date = convert_date(event_start_date)
+                event_end_date = convert_date(event_end_date)
+    
+        except: 
+            event_start_date = None
+            event_end_date = None
+            
+        time.sleep(1)
+        try:
+            venue = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(1) > div > a').text
+            venue = venue[:-5] #불필요한 문장 삭제 
+    
+            
+        except: 
+             venue = None
+        # 공연장 정보 팝업 클릭 및 주소 추출
+        try:
+            address_elements = ''
+            info_btn = driver.find_element(By.CSS_SELECTOR, '.infoBtn[data-popup="info-place"]')
+            info_btn.click()
+            time.sleep(1)  
+            address_elements = driver.find_elements(By.CSS_SELECTOR, '#popup-info-place > div > div.popupBody > div > div.popPlaceInfo > p')
+            address = None
+            
+            for element in address_elements:
+                if '주소' in element.text:
+                    span_element = element.find_element(By.TAG_NAME, 'span')
+                    address = span_element.text
+                    break
+                    
+                   
+        except:
+            address = None
+    
+            
+        # 현재 탭을 닫음
+        driver.close()
+        driver.switch_to.window(driver.window_handles[1])
+
     except NoSuchElementException:
         detail_url = detail_link
 
-    if detail_url == '':
-        detail_url = detail
-    #상세보기 링크 페이지로 접속
-    driver.execute_script(f"window.open('{detail_url}','_blank');")
-    driver.switch_to.window(driver.window_handles[2])
-    
-    time.sleep(1)
-    # 예매 안내 팝업 닫기 
-    close_popup(driver)
-    
-    # 공연 기간 추출
-    try:
-        period_text = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(2) > div > p').text
 
-        if '~' in period_text:
-            event_start_date, event_end_date = period_text.split('~')
-            event_start_date = convert_date(event_start_date)
-            event_end_date = convert_date(event_end_date)
-
-    except: 
-        event_start_date = None
-        event_end_date = None
-
-    try:
-        venue = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(1) > div > a').text
-        venue = venue[:-5] #불필요한 문장 삭제 
-
-        
-    except: 
-         venue = ''
-    # 공연장 정보 팝업 클릭 및 주소 추출
-    try:
-        info_btn = driver.find_element(By.CSS_SELECTOR, '.infoBtn[data-popup="info-place"]')
-        info_btn.click()
-        time.sleep(1)  
-        address_elements = driver.find_elements(By.CSS_SELECTOR, '#popup-info-place > div > div.popupBody > div > div.popPlaceInfo > p')
-        address = ''
-        
-        for element in address_elements:
-            if '주소' in element.text:
-                span_element = element.find_element(By.TAG_NAME, 'span')
-                address = span_element.text
-                break
-                
-               
-    except:
-        address = ''
-
-        
-    # 현재 탭을 닫음
-    driver.close()
-    driver.switch_to.window(driver.window_handles[1])
+   
 
     # 데이터베이스에 삽임
 
