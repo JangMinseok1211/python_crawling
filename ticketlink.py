@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, date
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -7,7 +7,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import NoSuchElementException
+import mysql.connector
 import time
+import joblib
 
 # 데이터 전처리 함수
 def convert_date(date_str):
@@ -59,7 +61,7 @@ def get_mysql_connection():
     
 # MySQL 연결 설정
 db_config = {
-    
+ 
 }
 # 이벤트 존재 확인 함수 (LIKE를 사용하여 부분 일치 검색)
 def is_event_exists(cursor, event_name):
@@ -118,6 +120,9 @@ def get_info_part(info, section_name, list):
                 break
         return section_info.strip()
     return ''
+
+# 저장된 모델과 벡터라이저 불러오기
+model, vectorizer = joblib.load('genre_classifier.pkl')
     
 # ChromeDriverManager를 사용하여 크롬 드라이버 자동 설치 및 경로 설정
 service = Service(ChromeDriverManager().install())
@@ -135,12 +140,17 @@ for ticket in tickets:
     event_name = ticket.find_element(By.CSS_SELECTOR, 'td.tl.p_reative').text
     print("제목 : " + event_name)
     
+    # 장르 예측
+    genre_vector = vectorizer.transform([event_name])
+    genre = model.predict(genre_vector)[0]
+    print("예측된 장르: " + genre)
+    
     # 상세페이지 열기
     link = ticket.find_element(By.CSS_SELECTOR, 'td.tl.p_reative > a').get_attribute('href')
     driver.execute_script(f"window.open('{link}','_blank');")
     driver.switch_to.window(driver.window_handles[-1])
     
-    time.sleep(3)
+    time.sleep(1)
     
     # 티켓선예매
     pre_sale_date = ''
@@ -168,7 +178,7 @@ for ticket in tickets:
         driver.execute_script(f"window.open('{detail_link}','_blank');")
         driver.switch_to.window(driver.window_handles[-1])
         
-        time.sleep(2)
+        time.sleep(1)
         
         close_popup(driver)
         
@@ -229,7 +239,7 @@ for ticket in tickets:
 
     print('기획사정보 : ' + agency_info)
 
-    genre =''
+
 
     event_start_date, event_end_date = extract_event_dates(full_performance_info)
     
@@ -276,7 +286,7 @@ for ticket in tickets:
     driver.close()
     driver.switch_to.window(driver.window_handles[0])
     
-    time.sleep(2)
+    time.sleep(1)
    
 # 웹 드라이버 종료
 driver.quit()
