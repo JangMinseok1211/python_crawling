@@ -1,4 +1,6 @@
+
 import re
+from selenium.webdriver.chrome.options import Options  
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -14,8 +16,8 @@ import subprocess
 # ChromeOptions 설정
 
 subprocess.Popen(r'C:\Program Files\Google\Chrome\Application\chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chromeCookie"')
-option = Options()
-option.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+options = Options()
+options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
 # ChromeDriver 초기화
 driver = webdriver.Chrome(options=options)
 
@@ -120,244 +122,261 @@ genre_mapping = {
     '클래식/무용': '클래식',
     '전시/행사': '전시행사'
 }
-    
-# 열고자 하는 웹페이지 URL
-driver.get("https://ticket.interpark.com/webzine/paper/TPNoticeList.asp?tid1=in_scroll&tid2=ticketopen&tid3=board_main&tid4=board_main")  
-
+driver.get("https://ticket.interpark.com/webzine/paper/TPNoticeList.asp?tid1=in_scroll&tid2=ticketopen&tid3=board_main&tid4=board_main") 
 # 오픈티켓목록 iframe
 iframe_content = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "iFrmNotice")))
 driver.switch_to.frame(iframe_content)
 
-# 오픈티켓목록
-tickets = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "body > div > div > div.list > div.table > table > tbody > tr")))
-
-for ticket in tickets: 
-    venue = ''
-    # 제목
-    event_name = ticket.find_element(By.CSS_SELECTOR, 'td.subject').text
-    
-    
-    # 카테고리
-    try:
-        original_genre = ticket.find_element(By.CSS_SELECTOR, 'td.type').text
-    except NoSuchElementException:
-        original_genre = ""
-    
-    # 카테고리가 사이트공지일 경우 크롤링 하지 않음
-    if original_genre == '사이트공지':
-        continue
-    
-    # 장르 매핑
-    genre = genre_mapping.get(original_genre, None)
-    if not genre:
-        continue  # 매핑되지 않은 장르의 경우 크롤링하지 않음
-
-
-    
-    # 티켓링크 상세페이지
-    detail_link = ''
-    detail_link = ticket.find_element(By.CSS_SELECTOR, 'td.subject > a').get_attribute('href')
-    time.sleep(1)
-    # 상세페이지 열기
-    driver.execute_script(f"window.open('{detail_link}','_blank');")
-    driver.switch_to.window(driver.window_handles[1])
-    
-    time.sleep(1)
+for page_no in range(1, 11):  # 1부터 10까지 크롤링
+    print(f"현재 {page_no} 페이지를 크롤링 중입니다.")
+    # 열고자 하는 웹페이지 URL
+     
     
 
-  
     
-    # 티켓오픈일 추출
-    try:
-        ticket_open_element = driver.find_element(By.CSS_SELECTOR, 'li.open')
-        ticket_open_text = ticket_open_element.text.strip()
-
-        # "추후 공지"인지 확인
-        if "추후공지" in ticket_open_text:
-            print(f"'{event_name}' 이벤트는 추후 공지입니다. 다음으로 넘어갑니다.")
-            driver.close()
-            driver.switch_to.window(driver.window_handles[0])
-            event_name = None
-            continue  # 다음 티켓으로 넘어감
-            
-        ticket_open_date = ticket_open_text.replace('티켓오픈일', '').strip()  # '티켓오픈일' 제거
-        ticket_open_date = convert_datetime(ticket_open_date)
+    # 오픈티켓목록
+    tickets = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "body > div > div > div.list > div.table > table > tbody > tr")))
+    
+    for ticket in tickets: 
+        venue = ''
+        # 제목
+        event_name = ticket.find_element(By.CSS_SELECTOR, 'td.subject').text
         
-    except:
-        ticket_open_date = None
         
-    # 티켓선예매 추출
-    presale_info = ''
-    try:
-        toping_presale_element = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li.tiki')
-        presale_info = toping_presale_element.text.replace('Toping 선예매', '').strip()
-        pre_ticket_open_date = convert_datetime(presale_info)
-    except:
+        # 카테고리
         try:
-            fanclub_presale_element = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li:nth-child(2)')
-            presale_info = fanclub_presale_element.text.replace('팬클럽 선예매', '').strip()
+            original_genre = ticket.find_element(By.CSS_SELECTOR, 'td.type').text
+        except NoSuchElementException:
+            original_genre = ""
+        
+        # 카테고리가 사이트공지일 경우 크롤링 하지 않음
+        if original_genre == '사이트공지':
+            continue
+        
+        # 장르 매핑
+        genre = genre_mapping.get(original_genre, None)
+        if not genre:
+            continue  # 매핑되지 않은 장르의 경우 크롤링하지 않음
+    
+    
+        
+        # 티켓링크 상세페이지
+        detail_link = ''
+        detail_link = ticket.find_element(By.CSS_SELECTOR, 'td.subject > a').get_attribute('href')
+        time.sleep(1)
+        # 상세페이지 열기
+        driver.execute_script(f"window.open('{detail_link}','_blank');")
+        driver.switch_to.window(driver.window_handles[1])
+        
+        time.sleep(1)
+        
+    
+      
+        
+        # 티켓오픈일 추출
+        try:
+            ticket_open_element = driver.find_element(By.CSS_SELECTOR, 'li.open')
+            ticket_open_text = ticket_open_element.text.strip()
+    
+            # "추후 공지"인지 확인
+            if "추후공지" in ticket_open_text:
+                ticket_open_date = None
+
+                
+            ticket_open_date = ticket_open_text.replace('티켓오픈일', '').strip()  # '티켓오픈일' 제거
+            ticket_open_date = convert_datetime(ticket_open_date)
+            
+        except:
+            ticket_open_date = None
+            
+        # 티켓선예매 추출
+        presale_info = ''
+        try:
+            toping_presale_element = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li.tiki')
+            presale_info = toping_presale_element.text.replace('Toping 선예매', '').strip()
             pre_ticket_open_date = convert_datetime(presale_info)
         except:
-            pre_ticket_open_date = None
-            
-
-    # 이미지 URL
-    try:
-        image_url = driver.find_element(By.CSS_SELECTOR, '.section_notice .detail_top .poster > img').get_attribute('src')
-    except:
-        image_url = ''
-
+            try:
+                fanclub_presale_element = driver.find_element(By.CSS_SELECTOR, '#wrapBody > div > div > div.board > div.detail_top > div.info > ul > li:nth-child(2)')
+                presale_info = fanclub_presale_element.text.replace('팬클럽 선예매', '').strip()
+                pre_ticket_open_date = convert_datetime(presale_info)
+            except:
+                pre_ticket_open_date = None
+                
     
-    # 등록일
-    registration_date_str = driver.find_element(By.CSS_SELECTOR, '.section_notice .detail_top .btn .date > span').text
-    registration_date = convert_date(registration_date_str)
-
-    
-    # 공연정보
-    try:
-        basic_info = driver.find_element(By.CSS_SELECTOR, 'div.introduce').text
-    except:
-        basic_info = ''
-        
-
-    
-    # 할인정보
-    try:
-        info_discount = driver.find_element(By.CSS_SELECTOR, 'div.info_discount').text
-    except:
-        info_discount = ''
-
-    basic_info = basic_info + info_discount
-
-    # 공연소개
-    try:
-        event_description = driver.find_element(By.CSS_SELECTOR, 'div.info1').text 
-    except:
-        event_description = ''
-        infos = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.info2")))
-        for info in infos:
-            if info.find_element(By.TAG_NAME, 'h4').text == "공연소개":
-                event_description = info.text
-
-    
-    # 캐스팅
-    try:
-        infos = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.info2")))
-        for info in infos:
-            if info.find_element(By.TAG_NAME, 'h4').text == "캐스팅":
-                casting = info.text
-    except:
-        casting = ''
-
-    
-    # 기획사정보
-    agency_info = ''
-    for info in infos:
-            if info.find_element(By.TAG_NAME, 'h4').text == "기획사정보":
-                agency_info = info.text
-
-    agency_info= agency_info + casting
-
-    try:
-        detail_url = driver.find_element(By.CSS_SELECTOR, 'a.btn_book').get_attribute('href')
-         #상세보기 링크 페이지로 접속
-        driver.execute_script(f"window.open('{detail_url}','_blank');")
-        driver.switch_to.window(driver.window_handles[2])
-        
-        time.sleep(1)
-        # 예매 안내 팝업 닫기 
-        close_popup(driver)
-        
-        # 공연 기간 추출
+        # 이미지 URL
         try:
-            period_text = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(2) > div > p').text
-    
-            if '~' in period_text:
-                event_start_date, event_end_date = period_text.split('~')
-                event_start_date = convert_date(event_start_date)
-                event_end_date = convert_date(event_end_date)
-    
-        except: 
-            event_start_date = None
-            event_end_date = None
-            
-        time.sleep(1)
-        try:
-            venue = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(1) > div > a').text
-            venue = venue[:-5] #불필요한 문장 삭제 
-    
-            
-        except: 
-             venue = None
-        # 공연장 정보 팝업 클릭 및 주소 추출
-        try:
-            address_elements = ''
-            info_btn = driver.find_element(By.CSS_SELECTOR, '.infoBtn[data-popup="info-place"]')
-            info_btn.click()
-            time.sleep(1)  
-            address_elements = driver.find_elements(By.CSS_SELECTOR, '#popup-info-place > div > div.popupBody > div > div.popPlaceInfo > p')
-            address = None
-            
-            for element in address_elements:
-                if '주소' in element.text:
-                    span_element = element.find_element(By.TAG_NAME, 'span')
-                    address = span_element.text
-                    break
-                    
-                   
+            image_url = driver.find_element(By.CSS_SELECTOR, '.section_notice .detail_top .poster > img').get_attribute('src')
         except:
-            address = None
+            image_url = ''
     
+        
+        # 등록일
+        registration_date_str = driver.find_element(By.CSS_SELECTOR, '.section_notice .detail_top .btn .date > span').text
+        registration_date = convert_date(registration_date_str)
+    
+        
+        # 공연정보
+        try:
+            basic_info = driver.find_element(By.CSS_SELECTOR, 'div.introduce').text
+        except:
+            basic_info = ''
             
-        # 현재 탭을 닫음
+    
+        
+        # 할인정보
+        try:
+            info_discount = driver.find_element(By.CSS_SELECTOR, 'div.info_discount').text
+        except:
+            info_discount = ''
+    
+        basic_info = basic_info + info_discount
+    
+        # 공연소개
+        try:
+            event_description = driver.find_element(By.CSS_SELECTOR, 'div.info1').text 
+        except:
+            event_description = ''
+            infos = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.info2")))
+            for info in infos:
+                if info.find_element(By.TAG_NAME, 'h4').text == "공연소개":
+                    event_description = info.text
+    
+        
+        # 캐스팅
+        try:
+            infos = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.info2")))
+            for info in infos:
+                if info.find_element(By.TAG_NAME, 'h4').text == "캐스팅":
+                    casting = info.text
+        except:
+            casting = ''
+    
+        
+        # 기획사정보
+        agency_info = ''
+        for info in infos:
+                if info.find_element(By.TAG_NAME, 'h4').text == "기획사정보":
+                    agency_info = info.text
+    
+        agency_info= agency_info + casting
+    
+        try:
+            detail_url = driver.find_element(By.CSS_SELECTOR, 'a.btn_book').get_attribute('href')
+             #상세보기 링크 페이지로 접속
+            driver.execute_script(f"window.open('{detail_url}','_blank');")
+            driver.switch_to.window(driver.window_handles[2])
+            
+            time.sleep(1)
+            # 예매 안내 팝업 닫기 
+            close_popup(driver)
+            
+            # 공연 기간 추출
+            try:
+                period_text = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(2) > div > p').text
+        
+                if '~' in period_text:
+                    event_start_date, event_end_date = period_text.split('~')
+                    event_start_date = convert_date(event_start_date)
+                    event_end_date = convert_date(event_end_date)
+        
+            except: 
+                event_start_date = None
+                event_end_date = None
+                
+            time.sleep(1)
+            try:
+                venue = driver.find_element(By.CSS_SELECTOR, '#container > div.contents > div.productWrapper > div.productMain > div.productMainTop > div > div.summaryBody > ul > li:nth-child(1) > div > a').text
+                venue = venue[:-5] #불필요한 문장 삭제 
+        
+                
+            except: 
+                 venue = None
+            # 공연장 정보 팝업 클릭 및 주소 추출
+            try:
+                address_elements = ''
+                info_btn = driver.find_element(By.CSS_SELECTOR, '.infoBtn[data-popup="info-place"]')
+                info_btn.click()
+                time.sleep(1)  
+                address_elements = driver.find_elements(By.CSS_SELECTOR, '#popup-info-place > div > div.popupBody > div > div.popPlaceInfo > p')
+                address = None
+                
+                for element in address_elements:
+                    if '주소' in element.text:
+                        span_element = element.find_element(By.TAG_NAME, 'span')
+                        address = span_element.text
+                        break
+                        
+                       
+            except:
+                address = None
+        
+                
+            # 현재 탭을 닫음
+            driver.close()
+            driver.switch_to.window(driver.window_handles[1])
+    
+        except NoSuchElementException:
+            detail_url = detail_link
+    
+    
+       
+    
+        # 데이터베이스에 삽임
+    
+        try:
+            event_exists = is_event_exists(cursor, event_name)
+    
+            if event_exists:
+                event_id = event_exists[0] #첫번재 열의 값인 id를 가져옴
+                # 이미 존재하는 이벤트에 대해 판매 사이트 정보만 추가
+                sales_site_data = (event_id, 'Interpark Ticket', detail_url)
+                insert_sales_site(cursor, sales_site_data)
+            else:
+                # 이벤트 정보 삽입
+                event_data = (
+                    event_name, registration_date, ticket_open_date, pre_ticket_open_date, image_url, basic_info,
+                    event_description, agency_info, genre, event_start_date, event_end_date, venue, address
+                )
+                event_id = insert_event(cursor, event_data)
+    
+                # 판매 사이트 정보 삽입
+                sales_site_data = (event_id, 'Interpark Ticket', detail_url)
+                insert_sales_site(cursor, sales_site_data)
+    
+            conn.commit()
+            print(f"카테고리: {genre} 게시물 삽입 또는 업데이트 완료")
+    
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            conn.rollback()  # 오류가 발생하면 롤백합니다.
+        
+        # 현재 탭을 닫고 목록 페이지로 돌아감
         driver.close()
-        driver.switch_to.window(driver.window_handles[1])
-
-    except NoSuchElementException:
-        detail_url = detail_link
-
-
-   
-
-    # 데이터베이스에 삽임
-
+        driver.switch_to.window(driver.window_handles[0])
+        
+        iframe_content = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "iFrmNotice")))
+        driver.switch_to.frame(iframe_content)
+        
+        time.sleep(2)
+     # 다음 페이지로 이동
     try:
-        event_exists = is_event_exists(cursor, event_name)
+       
+        
+        # "다음 페이지" 버튼 클릭
+        next_button = driver.find_element(By.CSS_SELECTOR, f'a[href*="pageno={page_no + 1}"]')
+        next_button.click()
+        time.sleep(2)  # 페이지 로드 대기
+        
+        # 새로운 iframe 다시 전환
+        driver.switch_to.default_content()
+        iframe_content = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "iFrmNotice")))
+        driver.switch_to.frame(iframe_content)
+    except Exception as e:
+        print(f"다음 페이지로 이동 중 오류 발생: {e}")
+        break  # 오류 발생 시 크롤링 중단
 
-        if event_exists:
-            event_id = event_exists[0] #첫번재 열의 값인 id를 가져옴
-            # 이미 존재하는 이벤트에 대해 판매 사이트 정보만 추가
-            sales_site_data = (event_id, 'Interpark Ticket', detail_url)
-            insert_sales_site(cursor, sales_site_data)
-        else:
-            # 이벤트 정보 삽입
-            event_data = (
-                event_name, registration_date, ticket_open_date, pre_ticket_open_date, image_url, basic_info,
-                event_description, agency_info, genre, event_start_date, event_end_date, venue, address
-            )
-            event_id = insert_event(cursor, event_data)
-
-            # 판매 사이트 정보 삽입
-            sales_site_data = (event_id, 'Interpark Ticket', detail_url)
-            insert_sales_site(cursor, sales_site_data)
-
-        conn.commit()
-        print(f"카테고리: {genre} 게시물 삽입 또는 업데이트 완료")
-
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        conn.rollback()  # 오류가 발생하면 롤백합니다.
     
-    # 현재 탭을 닫고 목록 페이지로 돌아감
-    driver.close()
-    driver.switch_to.window(driver.window_handles[0])
-    
-    iframe_content = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "iFrmNotice")))
-    driver.switch_to.frame(iframe_content)
-    
-    time.sleep(2)
-
-
 
     
     
